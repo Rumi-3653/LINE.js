@@ -1516,3 +1516,28 @@ test("a bot cannot download a voice message even when its bytes look like an mp4
   const response = await fetch(`http://127.0.0.1:${env.port}/api/media/msg-703`, { headers: { Authorization: `Bearer ${env.token}` } });
   assert.equal(response.status, 404);
 });
+
+test("a bot downloads a picture sent as a file, typed from its bytes", async (t) => {
+  const env = await botEnv(t);
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46, 0, 1, 1, 0]);
+  env.provider.fetchMessageFile = async () => ({ mime: "application/octet-stream", bytes: jpeg, filename: "20240810_213456.jpg" });
+  env.hub.handleMessage({ messageId: "720", channelId: CHAT, channelKind: "group", senderId: "u1", senderName: "小明", contentType: "FILE", card: { kind: "file", name: "20240810_213456.jpg", fileId: "file-720" }, createdAt: 1 }, "new");
+  const get = (id) => fetch(`http://127.0.0.1:${env.port}/api/media/${id}`, { headers: { Authorization: `Bearer ${env.token}` } });
+  const ok = await get("file-720");
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get("content-type"), "image/jpeg");
+  assert.equal(ok.headers.get("cache-control"), "private, no-store");
+  assert.deepEqual(Buffer.from(await ok.arrayBuffer()), jpeg);
+  assert.equal((await get("msg-720")).status, 404, "a file is not a picture message");
+});
+
+test("a bot cannot download a file that is not a picture or video", async (t) => {
+  const env = await botEnv(t);
+  // The fake provider's default file is an HTML page.
+  env.hub.handleMessage({ messageId: "721", channelId: CHAT, channelKind: "group", senderId: "u1", senderName: "小明", contentType: "FILE", card: { kind: "file", name: "report.html", fileId: "file-721" }, createdAt: 1 }, "new");
+  env.hub.handleMessage({ messageId: "722", channelId: "c1", channelKind: "group", senderId: "u1", senderName: "小明", contentType: "FILE", card: { kind: "file", name: "a.jpg", fileId: "file-722" }, createdAt: 1 }, "new");
+  const get = (id) => fetch(`http://127.0.0.1:${env.port}/api/media/${id}`, { headers: { Authorization: `Bearer ${env.token}` } });
+  assert.equal((await get("file-721")).status, 404, "not a picture");
+  assert.equal((await get("file-722")).status, 404, "another chat");
+  assert.equal((await get("file-700")).status, 404, "a picture message is not a file");
+});

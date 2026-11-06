@@ -125,7 +125,7 @@ npm start
 | Server → Client | `api:state` / `api:token` | 機器人 API 狀態（只給網頁）／剛產生的 Token（只送給要求的那個連線，僅此一次） |
 | Client → Server | `api:token:create` / `api:token:revoke` | 產生或撤銷機器人 Token（僅網頁連線可用，機器人不行） |
 
-HTTP：`GET /media/:mediaId`（貼圖、貼圖包圖示、大頭照與原圖、收到的圖片／影片／語音；支援 Range）與 `POST /media/upload`（圖片／影片上傳）皆需瀏覽器 cookie 與同源。WS 不傳媒體位元組。機器人另有只讀的 `GET /api/media/msg-<id>`，見[機器人 API](#機器人-apiapiws)。
+HTTP：`GET /media/:mediaId`（貼圖、貼圖包圖示、大頭照與原圖、收到的圖片／影片／語音；支援 Range）與 `POST /media/upload`（圖片／影片上傳）皆需瀏覽器 cookie 與同源。WS 不傳媒體位元組。機器人另有只讀的 `GET /api/media/msg-<id>` 與 `file-<id>`，見[機器人 API](#機器人-apiapiws)。
 
 ### 機器人 API（`/api/ws`）
 
@@ -162,7 +162,7 @@ HTTP：`GET /media/:mediaId`（貼圖、貼圖包圖示、大頭照與原圖、�
 
 其餘一律回 `UNKNOWN_TYPE`：沒有登入／登出、`chat:read`（已讀回報）、`message:unsend`（收回）、`message:react`（回應）、`channels:refresh`、貼圖清單、Token 管理。**不重播舊訊息**（機器人從「現在」開始，不會重複回應歷史；要歷史請用 `history:fetch`）；不給 `read`、`update:available`、`api:state`；不能上傳或傳送媒體。
 
-**下載收到的圖片與影片**：`GET http://<host>:<port>/api/media/<mediaId>`（`mediaId` 取自 `message` 影格，形如 `msg-<id>`），帶同一個 `Authorization: Bearer <Token>`、**不可帶 `Origin`**。只限 `api.chats` 內、服務已收到的圖片與影片，回原始位元組（`Cache-Control: private, no-store`）；語音、檔案、其他聊天室或沒見過的 id 一律 404，驗證失敗 403。
+**下載收到的圖片與影片**：`GET http://<host>:<port>/api/media/<mediaId>`（`mediaId` 取自 `message` 影格，形如 `msg-<id>`），帶同一個 `Authorization: Bearer <Token>`、**不可帶 `Origin`**。只限 `api.chats` 內、服務已收到的圖片與影片，回原始位元組（`Cache-Control: private, no-store`）。以檔案傳送的照片或影片用 `file-<id>`（`message` 影格 `card.fileId`），只有位元組判定為圖片或影片的檔案才會給，型別依位元組判定。語音、其他檔案、其他聊天室或沒見過的 id 一律 404，驗證失敗 403。
 
 **頻率與風險**
 - 每個連線受 `limits.sendsPerSecond`（≤5）限制，且所有機器人合計每分鐘不超過 `api.sendsPerMinute`；超過回 `RATE_LIMITED`。

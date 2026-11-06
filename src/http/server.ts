@@ -4,7 +4,7 @@ import { readFile, realpath } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import type { Config } from "../config.js";
 import { SlidingWindowLimiter } from "../limit.js";
-import { isMediaId, sniffUpload, type MediaService } from "../media/service.js";
+import { isMediaId, sniffMedia, sniffUpload, type MediaService } from "../media/service.js";
 import type { ApiTokenStore } from "./apiToken.js";
 
 export interface WebServer {
@@ -84,20 +84,22 @@ export function createWebServer(config: Config, webRoot: string, media: MediaSer
       json(response, 405, { code: "METHOD_NOT_ALLOWED" });
       return;
     }
-    const messageId = /^msg-(\d{1,32})$/.exec(id)?.[1];
+    const [, kind, messageId] = /^(msg|file)-(\d{1,32})$/.exec(id) ?? [];
     // The message's own type decides, not the sniffed bytes: a voice note in an mp4 container sniffs as video.
     const seen = messageId === undefined ? undefined : config.api.chats.map((chat) => store.get(messageId, chat)).find(Boolean);
-    if (!BOT_MEDIA_TYPES.has(seen?.contentType ?? "")) {
+    if (kind === "file" ? seen?.contentType !== "FILE" : !BOT_MEDIA_TYPES.has(seen?.contentType ?? "")) {
       json(response, 404, { code: "NOT_FOUND" });
       return;
     }
     try {
       const found = await media.get(id);
-      if (!found || !/^(?:image|video)\//.test(found.mime)) {
+      // A file is whatever the sender chose: only a picture or video passes, typed from its own bytes.
+      const mime = kind === "file" ? found && sniffMedia(found.bytes) : found?.mime;
+      if (!found || !mime || !/^(?:image|video)\//.test(mime)) {
         json(response, 404, { code: "NOT_FOUND" });
         return;
       }
-      response.writeHead(200, { "Content-Type": found.mime, "Content-Length": found.bytes.length, "Cache-Control": "private, no-store" });
+      response.writeHead(200, { "Content-Type": mime, "Content-Length": found.bytes.length, "Cache-Control": "private, no-store" });
       response.end(found.bytes);
     } catch (error) {
       // Our own failures are fixed UPPER_SNAKE codes; anything else is reduced to its class name.

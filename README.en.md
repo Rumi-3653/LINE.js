@@ -125,7 +125,7 @@ Available:
 | Server → Client | `api:state` / `api:token` | Bot API state (web interface only)/newly generated Token (sent only once to the requesting connection) |
 | Client → Server | `api:token:create` / `api:token:revoke` | Generate or revoke a bot Token (web connections only, not bots) |
 
-HTTP: both `GET /media/:mediaId` (stickers, sticker pack icons, profile pictures and originals, received images/videos/voice messages; supports Range) and `POST /media/upload` (image/video uploads) require a browser cookie and same-origin access. WS does not carry media bytes. Bots have a separate read-only `GET /api/media/msg-<id>`; see [Bot API](#bot-apiapiws).
+HTTP: both `GET /media/:mediaId` (stickers, sticker pack icons, profile pictures and originals, received images/videos/voice messages; supports Range) and `POST /media/upload` (image/video uploads) require a browser cookie and same-origin access. WS does not carry media bytes. Bots have a separate read-only `GET /api/media/msg-<id>` and `file-<id>`; see [Bot API](#bot-apiapiws).
 
 ### Bot API（`/api/ws`）
 
@@ -162,7 +162,7 @@ Lets your own programs (bots) send and receive messages. **Disabled by default**
 
 Everything else returns `UNKNOWN_TYPE`: no login/logout, `chat:read` (sending read receipts), `message:unsend` (taking back), `message:react` (reactions), `channels:refresh`, sticker lists, or Token management. **Old messages are not replayed** (bots start from “now” and do not respond to history again; use `history:fetch` for history). No `read`, `update:available`, or `api:state` is provided. Bots cannot upload or send media.
 
-**Downloading received images and videos**: `GET http://<host>:<port>/api/media/<mediaId>` (the `mediaId` comes from the `message` frame and looks like `msg-<id>`), with the same `Authorization: Bearer <Token>` and **no `Origin`**. Only images and videos this service has received in a chat listed in `api.chats` are served, as raw bytes (`Cache-Control: private, no-store`); voice messages, files, other chats and ids never seen return 404, and a failed check returns 403.
+**Downloading received images and videos**: `GET http://<host>:<port>/api/media/<mediaId>` (the `mediaId` comes from the `message` frame and looks like `msg-<id>`), with the same `Authorization: Bearer <Token>` and **no `Origin`**. Only images and videos this service has received in a chat listed in `api.chats` are served, as raw bytes (`Cache-Control: private, no-store`). Photos or videos sent as files use `file-<id>` (the `message` frame's `card.fileId`); a file is served only when its bytes sniff as an image or video, with that sniffed type. Voice messages, other files, other chats and ids never seen return 404, and a failed check returns 403.
 
 **Rate limits and risks**
 - Each connection is limited by `limits.sendsPerSecond` (≤5), and all bots together may not exceed `api.sendsPerMinute`; exceeding either returns `RATE_LIMITED`.
