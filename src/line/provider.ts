@@ -12,6 +12,7 @@ import { chatEventMids, chatEventText, isChatEvent } from "./chatEvent.js";
 import { contentTypeName, messageCard } from "./cards.js";
 import { isEmptySquareStatus, squareReactions, talkReactions } from "./reactions.js";
 import { SessionStorage } from "./session.js";
+import { installLineMediaDecrypt } from "./mediaCrypto.js";
 
 export interface QRCallbacks {
   onQRUrl: (url: string) => void;
@@ -235,6 +236,8 @@ export class EvexLineProvider implements LineProvider {
   private async activate(base: BaseClient): Promise<void> {
     await this.storage.flush();
     if (this.stopped) throw new Error("LOGIN_STOPPED");
+    // Encrypted videos use a chunk-hash MAC that LINEJS 3.4.2 does not verify; see mediaCrypto.ts.
+    installLineMediaDecrypt(base);
     const client = new Client(base);
     this.client = client;
     const profile = this.getProfile();

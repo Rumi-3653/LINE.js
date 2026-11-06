@@ -99,7 +99,10 @@ export function createWebServer(config: Config, webRoot: string, media: MediaSer
       }
       response.writeHead(200, { "Content-Type": found.mime, "Content-Length": found.bytes.length, "Cache-Control": "private, no-store" });
       response.end(found.bytes);
-    } catch {
+    } catch (error) {
+      // Our own failures are fixed UPPER_SNAKE codes; anything else is reduced to its class name.
+      const code = error instanceof Error ? (/^[A-Z0-9_]{3,40}$/.test(error.message) ? error.message : error.name) : "UNKNOWN";
+      console.error(`BOT_MEDIA_FAILED ${code}`);
       json(response, 502, { code: "MEDIA_UNAVAILABLE" });
     }
   }
