@@ -15,10 +15,12 @@ export interface WebServer {
   authorizeApiUpgrade(request: IncomingMessage): boolean;
 }
 
-/** What the bot media route needs from the chat store: whether a message was seen in a given chat. */
+/** What the bot media route needs from the chat store: the message as seen in a given chat, if it was. */
 export interface SeenMessages {
-  get(messageId: string, channelId: string): unknown;
+  get(messageId: string, channelId: string): { contentType?: string } | undefined;
 }
+
+const BOT_MEDIA_TYPES = new Set(["IMAGE", "VIDEO"]);
 
 export function createWebServer(config: Config, webRoot: string, media: MediaService, apiTokens: ApiTokenStore, store: SeenMessages): WebServer {
   const browserToken = randomBytes(32).toString("hex");
@@ -83,7 +85,9 @@ export function createWebServer(config: Config, webRoot: string, media: MediaSer
       return;
     }
     const messageId = /^msg-(\d{1,32})$/.exec(id)?.[1];
-    if (messageId === undefined || !config.api.chats.some((chat) => store.get(messageId, chat) !== undefined)) {
+    // The message's own type decides, not the sniffed bytes: a voice note in an mp4 container sniffs as video.
+    const seen = messageId === undefined ? undefined : config.api.chats.map((chat) => store.get(messageId, chat)).find(Boolean);
+    if (!BOT_MEDIA_TYPES.has(seen?.contentType ?? "")) {
       json(response, 404, { code: "NOT_FOUND" });
       return;
     }

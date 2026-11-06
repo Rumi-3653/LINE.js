@@ -1508,3 +1508,11 @@ test("a bot cannot download non-picture, non-video media", async (t) => {
   const response = await fetch(`http://127.0.0.1:${env.port}/api/media/msg-702`, { headers: { Authorization: `Bearer ${env.token}` } });
   assert.equal(response.status, 404);
 });
+
+test("a bot cannot download a voice message even when its bytes look like an mp4", async (t) => {
+  const env = await botEnv(t);
+  // The fake provider returns ftyp/isom bytes, which the sniffer labels video/mp4.
+  env.hub.handleMessage({ messageId: "703", channelId: CHAT, channelKind: "group", senderId: "u1", senderName: "小明", contentType: "AUDIO", mediaId: "msg-703", createdAt: 1 }, "new");
+  const response = await fetch(`http://127.0.0.1:${env.port}/api/media/msg-703`, { headers: { Authorization: `Bearer ${env.token}` } });
+  assert.equal(response.status, 404);
+});
