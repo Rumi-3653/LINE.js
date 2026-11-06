@@ -135,7 +135,7 @@ async function start(t, { restore = true, readReceipts = true, api = {} } = {}) 
   const store = new ChatStore(500);
   const media = new MediaService(1024, provider);
   const apiTokens = new ApiTokenStore(join(root, "api-token.json"));
-  const web = createWebServer(config, root, media, apiTokens);
+  const web = createWebServer(config, root, media, apiTokens, store);
   const hub = createHub({ server: web.server, authorizeUpgrade: web.authorizeUpgrade, authorizeApiUpgrade: web.authorizeApiUpgrade, apiTokens, config, login, provider, store, media, serverVersion: "test" });
   await new Promise((resolve) => web.server.listen(port, "127.0.0.1", resolve));
   t.after(async () => {
@@ -1473,4 +1473,38 @@ test("a connection that stops answering pings is closed by the next heartbeat; o
   await new Promise((resolve) => setTimeout(resolve, 50));
   assert.equal(healthy.socket.readyState, WebSocket.OPEN);
   assert.equal(pings, 2);
+});
+
+// ---- Bot media download (/api/media) ----
+
+test("a bot downloads image and video bytes from its allowlisted chat only", async (t) => {
+  const env = await botEnv(t);
+  env.hub.handleMessage({ messageId: "700", channelId: CHAT, channelKind: "group", senderId: "u1", senderName: "小明", contentType: "VIDEO", mediaId: "msg-700", createdAt: 1 }, "new");
+  env.hub.handleMessage({ messageId: "701", channelId: "c1", channelKind: "group", senderId: "u1", senderName: "小明", contentType: "VIDEO", mediaId: "msg-701", createdAt: 1 }, "new");
+  const get = (id, headers = { Authorization: `Bearer ${env.token}` }) => fetch(`http://127.0.0.1:${env.port}/api/media/${id}`, { headers });
+  const ok = await get("msg-700");
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get("content-type"), "video/mp4");
+  assert.equal(ok.headers.get("cache-control"), "private, no-store");
+  assert.ok((await ok.arrayBuffer()).byteLength > 0);
+  assert.equal((await get("msg-701")).status, 404, "another chat");
+  assert.equal((await get("msg-999")).status, 404, "never seen");
+  assert.equal((await get("sticker-1")).status, 404, "not a message id");
+  assert.equal((await get("msg-700", {})).status, 403, "no token");
+  assert.equal((await get("msg-700", { Authorization: `Bearer ${env.token}x` })).status, 403, "wrong token");
+  assert.equal((await get("msg-700", { Authorization: `Bearer ${env.token}`, Origin: `http://127.0.0.1:${env.port}` })).status, 403, "a web page");
+});
+
+test("the bot media route stays closed when the bot API is disabled", async (t) => {
+  const env = await start(t);
+  const response = await fetch(`http://127.0.0.1:${env.port}/api/media/msg-1`, { headers: { Authorization: "Bearer linejs_x" } });
+  assert.equal(response.status, 403);
+});
+
+test("a bot cannot download non-picture, non-video media", async (t) => {
+  const env = await botEnv(t);
+  env.provider.fetchMessageMedia = async () => ({ mime: "application/octet-stream", bytes: Buffer.from("plain bytes") });
+  env.hub.handleMessage({ messageId: "702", channelId: CHAT, channelKind: "group", senderId: "u1", senderName: "小明", contentType: "AUDIO", mediaId: "msg-702", createdAt: 1 }, "new");
+  const response = await fetch(`http://127.0.0.1:${env.port}/api/media/msg-702`, { headers: { Authorization: `Bearer ${env.token}` } });
+  assert.equal(response.status, 404);
 });

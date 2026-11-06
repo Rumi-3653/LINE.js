@@ -125,7 +125,7 @@ PWA としてインストールできます（ブラウザーの「安裝」（�
 | Server → Client | `api:state` / `api:token` | ボット API の状態（Web ページのみ）／新しく生成した Token（要求元の接続のみに 1 回限り送信） |
 | Client → Server | `api:token:create` / `api:token:revoke` | ボット Token の生成・取り消し（Web 接続のみ。ボットは利用不可） |
 
-HTTP：`GET /media/:mediaId`（スタンプ、スタンプパックのアイコン、プロフィール画像と元画像、受信した画像／動画／音声。Range 対応）と `POST /media/upload`（画像／動画のアップロード）は、どちらもブラウザー cookie と同一オリジンが必要です。WS ではメディアのバイト列を送信しません。
+HTTP：`GET /media/:mediaId`（スタンプ、スタンプパックのアイコン、プロフィール画像と元画像、受信した画像／動画／音声。Range 対応）と `POST /media/upload`（画像／動画のアップロード）は、どちらもブラウザー cookie と同一オリジンが必要です。WS ではメディアのバイト列を送信しません。ボットには別に読み取り専用の `GET /api/media/msg-<id>` があります（[ボット API](#ボット-apiapiws) を参照）。
 
 ### ボット API（`/api/ws`）
 
@@ -160,7 +160,9 @@ HTTP：`GET /media/:mediaId`（スタンプ、スタンプパックのアイコ�
 | サービス → ボット | `message`、`message:edit`、`message:unsend` | `api.chats` のチャットルームの**リアルタイム**メッセージ、編集、送信取消のみ。自分が送ったものも含みます |
 | サービス → ボット | `sent`、`history`、`error` | 対応するリクエストへの応答。エラーは汎用コードのみ（`UNKNOWN_CHAT`、`INVALID_REQUEST`、`RATE_LIMITED`、`SEND_FAILED`…） |
 
-それ以外はすべて `UNKNOWN_TYPE` を返します。ログイン／ログアウト、`chat:read`（既読通知）、`message:unsend`（送信取消）、`message:react`（リアクション）、`channels:refresh`、スタンプ一覧、Token 管理は利用できません。**過去のメッセージは再送しません**（ボットは「今」から開始し、履歴に重複して応答しません。履歴は `history:fetch` を使ってください）。`read`、`update:available`、`api:state` は送信しません。画像／動画などのメディアのバイト列も取得できません（ボットにはメッセージの `contentType` のみ見えます）。
+それ以外はすべて `UNKNOWN_TYPE` を返します。ログイン／ログアウト、`chat:read`（既読通知）、`message:unsend`（送信取消）、`message:react`（リアクション）、`channels:refresh`、スタンプ一覧、Token 管理は利用できません。**過去のメッセージは再送しません**（ボットは「今」から開始し、履歴に重複して応答しません。履歴は `history:fetch` を使ってください）。`read`、`update:available`、`api:state` は送信しません。メディアのアップロードと送信はできません。
+
+**受信した画像と動画のダウンロード**：`GET http://<host>:<port>/api/media/<mediaId>`（`mediaId` は `message` フレームの値で、`msg-<id>` の形式）。同じ `Authorization: Bearer <Token>` を付け、**`Origin` は付けません**。`api.chats` 内でこのサービスが受信した画像と動画のみ、元のバイト列で返します（`Cache-Control: private, no-store`）。音声、ファイル、ほかのチャット、未受信の id はすべて 404、認証に失敗すると 403 です。
 
 **頻度とリスク**
 - 各接続は `limits.sendsPerSecond`（≤5）の制限を受け、全ボット合計で毎分 `api.sendsPerMinute` を超えてはいけません。超過すると `RATE_LIMITED` を返します。

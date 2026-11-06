@@ -43,7 +43,7 @@ async function main(): Promise<void> {
   const media = new MediaService(config.cache.mediaMaxBytes, provider);
   const apiTokens = new ApiTokenStore(resolve("api-token.json"));
   await apiTokens.load();
-  const web = createWebServer(config, resolve("dist/web"), media, apiTokens);
+  const web = createWebServer(config, resolve("dist/web"), media, apiTokens, store);
   const hub = createHub({
     server: web.server,
     authorizeUpgrade: web.authorizeUpgrade,

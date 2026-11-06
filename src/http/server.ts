@@ -15,7 +15,12 @@ export interface WebServer {
   authorizeApiUpgrade(request: IncomingMessage): boolean;
 }
 
-export function createWebServer(config: Config, webRoot: string, media: MediaService, apiTokens: ApiTokenStore): WebServer {
+/** What the bot media route needs from the chat store: whether a message was seen in a given chat. */
+export interface SeenMessages {
+  get(messageId: string, channelId: string): unknown;
+}
+
+export function createWebServer(config: Config, webRoot: string, media: MediaService, apiTokens: ApiTokenStore, store: SeenMessages): WebServer {
   const browserToken = randomBytes(32).toString("hex");
   // The Host header is deliberately not pinned, on loopback binds too (owner's decision): the service is reached
   // under whatever name or IP the user uses (reverse proxy, LAN name, tunnel). Origin must still equal the Host
@@ -54,12 +59,45 @@ export function createWebServer(config: Config, webRoot: string, media: MediaSer
     return hasBrowserCookie(request);
   }
 
-  function authorizeApiUpgrade(request: IncomingMessage): boolean {
+  function botAuthorized(request: IncomingMessage): boolean {
     // Browsers always attach Origin to a WebSocket handshake; a bot does not. Refusing it keeps every
     // web page out even if the token ever leaks into one.
     if (!config.api.enabled || request.headers.origin !== undefined) return false;
     const bearer = /^Bearer (\S+)$/.exec(request.headers.authorization ?? "")?.[1];
     return bearer !== undefined && apiTokens.verify(bearer);
+  }
+
+  function authorizeApiUpgrade(request: IncomingMessage): boolean {
+    return botAuthorized(request);
+  }
+
+  // A bot may fetch the picture or video of a message it was shown: only in its `api.chats`, only
+  // messages already seen there, and never anything else the page could reach through /media/.
+  async function handleBotMedia(request: IncomingMessage, response: ServerResponse, id: string): Promise<void> {
+    if (!botAuthorized(request)) {
+      json(response, 403, { code: "FORBIDDEN" });
+      return;
+    }
+    if (request.method !== "GET") {
+      json(response, 405, { code: "METHOD_NOT_ALLOWED" });
+      return;
+    }
+    const messageId = /^msg-(\d{1,32})$/.exec(id)?.[1];
+    if (messageId === undefined || !config.api.chats.some((chat) => store.get(messageId, chat) !== undefined)) {
+      json(response, 404, { code: "NOT_FOUND" });
+      return;
+    }
+    try {
+      const found = await media.get(id);
+      if (!found || !/^(?:image|video)\//.test(found.mime)) {
+        json(response, 404, { code: "NOT_FOUND" });
+        return;
+      }
+      response.writeHead(200, { "Content-Type": found.mime, "Content-Length": found.bytes.length, "Cache-Control": "private, no-store" });
+      response.end(found.bytes);
+    } catch {
+      json(response, 502, { code: "MEDIA_UNAVAILABLE" });
+    }
   }
 
   // Uploads are rare and single-user: one budget for the whole (single-browser) server.
@@ -140,6 +178,10 @@ export function createWebServer(config: Config, webRoot: string, media: MediaSer
     }
     if (request.method !== "GET" && request.method !== "HEAD") {
       json(response, 405, { code: "METHOD_NOT_ALLOWED" });
+      return;
+    }
+    if (url.pathname.startsWith("/api/media/")) {
+      await handleBotMedia(request, response, url.pathname.slice("/api/media/".length));
       return;
     }
     if (url.pathname.startsWith("/media/")) {
