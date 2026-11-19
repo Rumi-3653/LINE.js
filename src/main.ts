@@ -38,7 +38,8 @@ async function main(): Promise<void> {
       console.error(code);
       if (code === "SESSION_WRITE_FAILED") login.fail();
     },
-  }, undefined, config.limits.downloadMaxBytes);
+  }, undefined, config.limits.downloadMaxBytes, config.line.legyEncrypted);
+  if (config.line.legyEncrypted === false) console.info("LINE 加密閘道（/enc）已停用：line.legyEncrypted 為 false");
   const login = new LoginController(provider);
   const media = new MediaService(config.cache.mediaMaxBytes, provider);
   const apiTokens = new ApiTokenStore(resolve("api-token.json"));

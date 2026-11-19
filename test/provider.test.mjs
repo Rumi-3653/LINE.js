@@ -592,3 +592,14 @@ test("OpenChat TTL refresh replaces old live reactions with current history whil
   assert.deepEqual(page.messages[0].reactions, { counts: { LOVE: 3 } }, "history replaces reactions from before this refresh");
   assert.equal(page.messages[1].reactions, undefined, "live removal during refresh still overrides the walked snapshot");
 });
+
+// 2026-11-18: LINE's /enc gateway answered every encrypted Talk request with an empty 404
+// (linejs issue #280), so sends failed while receiving still worked. config.yaml can route around it.
+test("the LEGY-encrypted gateway is used unless config turns it off", () => {
+  const storage = { async flush() {}, async get() {}, async set() {} };
+  const events = { onMessage() {}, onRead() {}, onStatus() {}, onError() {} };
+  const byDefault = new EvexLineProvider(storage, "DESKTOPWIN", events).createBase();
+  assert.equal(byDefault.legy.encrypted, "auto");
+  const plain = new EvexLineProvider(storage, "DESKTOPWIN", events, undefined, undefined, false).createBase();
+  assert.equal(plain.legy.encrypted, false);
+});

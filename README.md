@@ -85,6 +85,7 @@ npm start
 - 監聽 host：預設且建議 `127.0.0.1`。以 `config.yaml` 為準，可改為其他主機名稱、IPv4 或 IPv6；程式不再強制本機迴路。網頁沒有帳號密碼，能連到該位址的人就能操作已登入的 LINE 帳號，啟動時非本機位址會印出警告。**不限制 `Host` 標頭**：不論監聽哪個位址，用任何 IP 或網域名稱連入都可以（例如反向代理、區網名稱、通道服務）；`Origin`、cookie 與 Token 檢查不變，`Sec-Fetch-Site: cross-site` 的請求仍拒絕。代價是不再防 DNS rebinding（攻擊者網域解析到本機位址時，該網頁與自己同源）。
 - port：預設 `3789`，可調整；host 與 port 從 `config.yaml` 讀取，程式不得寫死。
 - LINE 裝置：預設 `ANDROIDSECONDARY`。
+- LINE 加密閘道：`line.legyEncrypted` 可省略（預設由函式庫決定，走加密閘道 `/enc`）；設為 `false` 時 Talk 請求改走一般 HTTPS 路徑，訊息的端對端加密不變。只在 `/enc` 故障時暫時使用，恢復後請移除。
 - 歷史筆數：預設 50，單次最多 100。
 - 每頻道訊息快取：最多 500 則；媒體 LRU：預設 200MB。
 - WS frame：最多 256KB；文字：最多 8000 字。

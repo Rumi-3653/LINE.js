@@ -7,7 +7,8 @@ import type { Device } from "@evex/linejs/base";
 
 export interface Config {
   server: { host: string; port: number };
-  line: { device: Device };
+  /** legyEncrypted: false routes Talk requests around LINE's /enc gateway; omitted leaves the library default. */
+  line: { device: Device; legyEncrypted?: boolean };
   history: { defaultLimit: number };
   cache: { messagesPerChannel: number; mediaMaxBytes: number };
   chat: { sendReadReceipts: boolean };
@@ -85,9 +86,10 @@ export async function loadConfig(root = process.cwd()): Promise<Config> {
     "ANDROIDSECONDARY", "DESKTOPWIN", "DESKTOPMAC", "ANDROID", "IOS", "IOSIPAD", "WATCHOS", "WEAROS",
   ];
   if (typeof line.device !== "string" || !devices.includes(line.device)) throw new Error("CONFIG_INVALID");
+  if (line.legyEncrypted !== undefined && typeof line.legyEncrypted !== "boolean") throw new Error("CONFIG_INVALID");
   return {
     server: { host: server.host, port: integer(server.port, 65535) },
-    line: { device: line.device as Device },
+    line: { device: line.device as Device, ...(line.legyEncrypted === undefined ? {} : { legyEncrypted: line.legyEncrypted as boolean }) },
     history: { defaultLimit: integer(history.defaultLimit, 100) },
     cache: {
       messagesPerChannel: integer(cache.messagesPerChannel, 500),

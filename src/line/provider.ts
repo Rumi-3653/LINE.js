@@ -169,10 +169,15 @@ export class EvexLineProvider implements LineProvider {
     private readonly events: ProviderEvents,
     private readonly fetch?: FetchLike,
     private readonly downloadMaxBytes = DEFAULT_DOWNLOAD_BYTES,
+    // undefined keeps the linejs default; false avoids LINE's /enc gateway (config line.legyEncrypted).
+    private readonly legyEncrypted?: boolean,
   ) {}
 
   private createBase(): BaseClient {
-    const base = new BaseClient({ device: this.device, storage: this.storage, ...(this.fetch ? { fetch: this.fetch } : {}) });
+    const base = new BaseClient({
+      device: this.device, storage: this.storage, ...(this.fetch ? { fetch: this.fetch } : {}),
+      ...(this.legyEncrypted === undefined ? {} : { legy: { encrypted: this.legyEncrypted } }),
+    });
     // Helpers return Client only after login, too late to attach this listener.
     base.on("update:authtoken", (token) => {
       if (this.base !== base || this.loggingOut) return;

@@ -15,6 +15,10 @@ line:
   # 預設使用 Android 次要裝置登入，請先以次要 LINE 帳號驗證。
   # 支援：ANDROIDSECONDARY、DESKTOPWIN、DESKTOPMAC、ANDROID、IOS、IOSIPAD、WATCHOS、WEAROS。
   device: ANDROIDSECONDARY
+  # LINE 的加密閘道（/enc）。可省略；省略時由函式庫決定（預設加密）。
+  # 設為 false 時，Talk 請求改走一般 HTTPS 路徑、不經 /enc；連線仍是 HTTPS，訊息本身的端對端加密不變。
+  # 只在 /enc 故障時暫時使用（2026-11-18 起它對所有加密請求回空的 404，見 evex-dev/linejs#280），恢復後請移除這行。
+  # legyEncrypted: false
 
 # 歷史訊息載入。
 history:

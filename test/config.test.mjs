@@ -60,3 +60,15 @@ test("the bot API is off by default and, once on, needs a non-empty list of vali
     await assert.rejects(load(bad), /CONFIG_INVALID/);
   }
 });
+
+test("line.legyEncrypted is optional and must be a boolean when present", async (t) => {
+  const { root, config } = await fixture(t);
+  const load = async (line) => {
+    await writeFile(join(root, "config.yaml"), stringify({ ...config, line: { ...config.line, ...line } }));
+    return loadConfig(root);
+  };
+  assert.equal((await load({})).line.legyEncrypted, undefined);
+  assert.equal((await load({ legyEncrypted: false })).line.legyEncrypted, false);
+  assert.equal((await load({ legyEncrypted: true })).line.legyEncrypted, true);
+  for (const bad of ["false", 0, null]) await assert.rejects(load({ legyEncrypted: bad }), /CONFIG_INVALID/);
+});
